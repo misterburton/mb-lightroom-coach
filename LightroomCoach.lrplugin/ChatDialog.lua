@@ -18,20 +18,10 @@ local SUGGESTIONS = {
 }
 
 function ChatDialog.present()
-  -- Check for API key first
   local prefs = LrPrefs.prefsForPlugin()
-  if not prefs.openai_api_key or prefs.openai_api_key == "" then
-    local result = LrDialogs.promptForText {
-      title = "OpenAI API Key Required",
-      message = "Enter your OpenAI API key to use Lightroom Coach:",
-      actionVerb = "Save"
-    }
-    if result then
-      prefs.openai_api_key = result
-    else
-      return -- User cancelled
-    end
-  end
+  
+  -- Skip API key check if already set (it's visible in Plug-in Manager)
+  -- Dialog will error gracefully if key is missing during API call
 
   local f = LrView.osFactory()
   local props = LrView.bindings.makePropertyTable(_G)
@@ -182,10 +172,10 @@ function ChatDialog.present()
     }
   }
 
-  LrDialogs.presentFloatingDialog(_PLUGIN, {
+  local result = LrDialogs.presentFloatingDialog(_PLUGIN, {
     title = "Lightroom Coach",
     contents = c,
-    resizable = true
+    resizable = true,
   })
 end
 
