@@ -1,3 +1,10 @@
+--[[----------------------------------------------------------------------------
+Prefs.lua
+Plugin preferences UI for API key configuration
+
+© 2025 misterburton
+------------------------------------------------------------------------------]]
+
 local LrView = import 'LrView'
 local LrPrefs = import 'LrPrefs'
 
@@ -40,3 +47,4 @@ return {
     }
   end
 }
+

@@ -1,85 +1,53 @@
+--[[----------------------------------------------------------------------------
+OpenAI.lua
+Handles OpenAI API calls with system prompt and context
+
+© 2025 misterburton
+------------------------------------------------------------------------------]]
+
 local LrHttp = import 'LrHttp'
 local LrPrefs = import 'LrPrefs'
-local LrFunctionContext = import 'LrFunctionContext'
 local LrApplication = import 'LrApplication'
 
-local json = require 'JSON'
+local JSON = require 'JSON'
 local OpenAI = {}
 
--- System prompt that restricts responses to Lightroom-only topics
-local SYSTEM_PROMPT = [[You are Lightroom Coach, an AI assistant specialized exclusively in Adobe Lightroom Classic (the desktop application for macOS and Windows). Your purpose is to help users with Lightroom Classic features, editing workflows, and to perform editing actions when requested.
+-- System prompt restricting responses to Lightroom Classic only
+local SYSTEM_PROMPT = [[You are Lightroom Classic Coach. Answer questions about Lightroom and execute photo edits.
 
-CRITICAL RULES:
-- You MUST only respond to Lightroom Classic desktop application questions
-- DO NOT provide guidance for Lightroom CC (cloud), Lightroom Mobile, or Lightroom Web
-- If asked about other Lightroom versions, clarify: "I'm specialized in Lightroom Classic desktop only. That feature may be available in Lightroom CC or Mobile."
-- If asked about topics outside of Lightroom entirely, politely redirect: "I'm specialized in Lightroom Classic. How can I help with your photo editing?"
-- When providing editing guidance that can be automated, include a JSON action block in your response
+CRITICAL: When the user asks you to EDIT a photo (brighten, darken, adjust, enhance, etc.), you MUST include a JSON action block. Without the JSON, nothing happens.
 
-AVAILABLE ACTIONS:
-When appropriate, include a JSON block like this:
+Response format for edit requests:
 ```json
-{
-  "action": "apply_develop_settings",
-  "params": {
-    "exposure": 0.5,
-    "contrast": 10,
-    "highlights": -20,
-    "shadows": 15
-  }
-}
+{"action":"apply_develop_settings","params":{"exposure":0.5}}
 ```
 
-Available develop settings: exposure, contrast, highlights, shadows, whites, blacks, clarity, vibrance, saturation, temperature, tint
+Available params: exposure, contrast, highlights, shadows, whites, blacks, clarity, vibrance, saturation, temperature, tint
 
-Remember: All guidance must be specific to Lightroom Classic desktop (macOS/Windows) only.]]
+Examples:
 
-function OpenAI.ask(question, context)
-  local prefs = LrPrefs.prefsForPlugin()
-  local apiKey = prefs.openai_api_key or ""
-  if apiKey == "" then 
-    return { success = false, text = "No API key set. Please configure your OpenAI API key in Plug-in Manager." } 
-  end
+User: "How do I adjust white balance?"
+You: "In Develop module, use WB dropdown for presets or Temp/Tint sliders. Eyedropper tool samples neutral areas to auto-balance."
 
-  -- Build context string
-  local contextStr = ""
-  if context then
-    contextStr = string.format("\n\nCurrent Context:\n- Module: %s\n- Selected Photos: %d", 
-      context.module or "Unknown", 
-      context.photoCount or 0)
-  end
+User: "Brighten this photo by +0.5 exposure"
+You: "```json
+{"action":"apply_develop_settings","params":{"exposure":0.5}}
+```"
 
-  local body = json.encode({
-    model = "gpt-5-mini",
-    messages = {
-      { role = "system", content = SYSTEM_PROMPT },
-      { role = "user", content = question .. contextStr }
-    }
-  })
+User: "Make this darker"
+You: "```json
+{"action":"apply_develop_settings","params":{"exposure":-0.7}}
+```"
 
-  local response, hdrs = LrHttp.post(
-    "https://api.openai.com/v1/chat/completions",
-    body,
-    { 
-      { field = "Content-Type", value = "application/json" },
-      { field = "Authorization", value = "Bearer " .. apiKey } 
-    }
-  )
+User: "Enhance this photo"
+You: "```json
+{"action":"apply_develop_settings","params":{"exposure":0.3,"contrast":12,"highlights":-25,"shadows":20,"clarity":8,"vibrance":10}}
+```"
 
-  if not response then
-    return { success = false, text = "Network error. Please check your connection." }
-  end
-
-  -- Parse response
-  local decoded = json.decode(response)
-  if not decoded or not decoded.choices or #decoded.choices == 0 then
-    return { success = false, text = "Invalid response from OpenAI API." }
-  end
-
-  local content = decoded.choices[1].message.content
-
-  return { success = true, text = content }
-end
+RULES:
+- Edit requests = JSON only (optional short prefix like "Applying:" is fine)
+- Questions starting with "How/Where/What" = text instructions
+- Only Lightroom Classic (refuse CC/Mobile/Web/other topics)]]
 
 -- Get current Lightroom context
 function OpenAI.getContext()
@@ -87,7 +55,7 @@ function OpenAI.getContext()
   local photos = catalog:getTargetPhotos()
   local moduleName = "Unknown"
   
-  -- Try to get current module (may not be available in all SDK versions)
+  -- Try to get current module
   pcall(function()
     local LrApplicationView = import 'LrApplicationView'
     moduleName = LrApplicationView.getCurrentModuleName() or "Unknown"
@@ -99,4 +67,73 @@ function OpenAI.getContext()
   }
 end
 
+-- Send question to OpenAI API
+function OpenAI.ask(question, context)
+  local prefs = LrPrefs.prefsForPlugin()
+  local apiKey = prefs.openai_api_key or ""
+  
+  if apiKey == "" then 
+    return { 
+      success = false, 
+      text = "No API key set. Please configure your OpenAI API key in Plug-in Manager." 
+    } 
+  end
+
+  -- Build context string
+  local contextStr = ""
+  if context then
+    contextStr = string.format("\n\nCurrent Context:\n- Module: %s\n- Selected Photos: %d", 
+      context.module or "Unknown", 
+      context.photoCount or 0)
+  end
+
+  -- Build request body
+  local body = JSON.encode({
+    model = "gpt-5-mini",
+    messages = {
+      { role = "system", content = SYSTEM_PROMPT },
+      { role = "user", content = question .. contextStr }
+    }
+  })
+
+  -- Make API call
+  local response, hdrs = LrHttp.post(
+    "https://api.openai.com/v1/chat/completions",
+    body,
+    { 
+      { field = "Content-Type", value = "application/json" },
+      { field = "Authorization", value = "Bearer " .. apiKey } 
+    }
+  )
+
+  if not response then
+    return { 
+      success = false, 
+      text = "Network error. Please check your connection." 
+    }
+  end
+
+  -- Parse response
+  local decoded = JSON.decode(response)
+  if not decoded or not decoded.choices or #decoded.choices == 0 then
+    -- Try to extract error message
+    local errorMsg = "Invalid response from OpenAI API."
+    if decoded and decoded.error and decoded.error.message then
+      errorMsg = decoded.error.message
+    end
+    return { 
+      success = false, 
+      text = errorMsg 
+    }
+  end
+
+  local content = decoded.choices[1].message.content
+
+  return { 
+    success = true, 
+    text = content 
+  }
+end
+
 return OpenAI
+

@@ -1,31 +1,63 @@
+--[[----------------------------------------------------------------------------
+Actions.lua
+Parses and executes develop settings from AI responses
+
+© 2025 misterburton
+------------------------------------------------------------------------------]]
+
 local LrApplication = import 'LrApplication'
 local LrDialogs = import 'LrDialogs'
 local LrTasks = import 'LrTasks'
-local LrFunctionContext = import 'LrFunctionContext'
 
-local json = require 'JSON'
+local JSON = require 'JSON'
 local Actions = {}
 
--- Store the last action for undo
+-- Store last action for undo
 local lastAction = nil
 
--- Parse JSON from text (handles code blocks)
+-- Extract JSON from text (handles code blocks)
 local function extractJSON(text)
-  -- Look for JSON in code blocks ```json ... ```
-  local jsonBlock = text:match("```json(.-)```")
+  -- Look for JSON in code blocks ```json ... ``` (with newlines)
+  local jsonBlock = text:match("```json\n?([^`]+)```")
   if jsonBlock then
-    return json.decode(jsonBlock:match("^%s*(.-)%s*$"))
+    -- Trim whitespace
+    jsonBlock = jsonBlock:match("^%s*(.-)%s*$")
+    -- Unescape if needed (OpenAI sometimes returns escaped JSON)
+    jsonBlock = jsonBlock:gsub('\\"', '"')
+    local success, result = pcall(JSON.decode, jsonBlock)
+    if success and result then
+      return result
+    end
   end
   
-  -- Look for raw JSON objects
-  local rawJSON = text:match("{.-}")
+  -- Look for raw JSON objects (greedy to capture full object)
+  local rawJSON = text:match("({.+})")
   if rawJSON then
-    local success, result = pcall(json.decode, rawJSON)
-    if success then return result end
+    -- Unescape if needed
+    rawJSON = rawJSON:gsub('\\"', '"')
+    local success, result = pcall(JSON.decode, rawJSON)
+    if success and result then 
+      return result 
+    end
   end
   
   return nil
 end
+
+-- Map friendly param names to Lightroom SDK names
+local PARAM_MAP = {
+  exposure = "Exposure2012",
+  contrast = "Contrast2012",
+  highlights = "Highlights2012",
+  shadows = "Shadows2012",
+  whites = "Whites2012",
+  blacks = "Blacks2012",
+  clarity = "Clarity2012",
+  vibrance = "Vibrance",
+  saturation = "Saturation",
+  temperature = "Temperature",
+  tint = "Tint"
+}
 
 -- Apply develop settings to selected photos
 local function applyDevelopSettings(params)
@@ -37,18 +69,40 @@ local function applyDevelopSettings(params)
     return false
   end
   
-  -- Store original settings for undo
-  local originalSettings = {}
-  for i, photo in ipairs(photos) do
-    originalSettings[i] = photo:getDevelopSettings()
+  -- Check if photo is a valid type for develop settings
+  local photo = photos[1]
+  if photo:getRawMetadata("isVideo") then
+    LrDialogs.message("Invalid photo", "Cannot apply develop settings to videos.", "info")
+    return false
   end
   
-  -- Apply new settings
+  -- Store original settings for undo
+  local originalSettings = {}
+  for i, p in ipairs(photos) do
+    originalSettings[i] = p:getDevelopSettings()
+  end
+  
+  -- Map friendly names to SDK names
+  local mappedParams = {}
+  for key, value in pairs(params) do
+    local sdkKey = PARAM_MAP[key] or key
+    mappedParams[sdkKey] = value
+  end
+  
+  -- Apply new settings with proper context
+  local success = false
   catalog:withWriteAccessDo("Apply Lightroom Coach Settings", function()
-    for _, photo in ipairs(photos) do
-      photo:applyDevelopSettings(params)
+    for _, p in ipairs(photos) do
+      -- Apply the mapped settings directly
+      p:applyDevelopSettings(mappedParams)
+      success = true
     end
   end)
+  
+  if not success then
+    LrDialogs.message("Failed", "Could not apply settings to photo.", "critical")
+    return false
+  end
   
   -- Store for undo
   lastAction = {
@@ -77,7 +131,7 @@ function Actions.undo()
   LrDialogs.message("Undone", "Previous edits have been reverted.", "info")
 end
 
--- Main action handler
+-- Main action handler - checks for actions in AI response
 function Actions.maybePerform(responseText)
   local action = extractJSON(responseText)
   
@@ -116,3 +170,4 @@ function Actions.maybePerform(responseText)
 end
 
 return Actions
+

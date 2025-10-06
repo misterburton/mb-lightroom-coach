@@ -1,15 +1,22 @@
+--[[----------------------------------------------------------------------------
+ChatDialog.lua
+Floating chat dialog UI with reactive property binding
+
+© 2025 misterburton
+------------------------------------------------------------------------------]]
+
 local LrDialogs = import 'LrDialogs'
 local LrView = import 'LrView'
+local LrBinding = import 'LrBinding'
+local LrFunctionContext = import 'LrFunctionContext'
 local LrTasks = import 'LrTasks'
-local LrPrefs = import 'LrPrefs'
-local LrColor = import 'LrColor'
 
 local OpenAI = require 'OpenAI'
 local Actions = require 'Actions'
 
 local ChatDialog = {}
 
--- Prompt suggestions
+-- Preset suggestions
 local SUGGESTIONS = {
   "How do I adjust white balance?",
   "Explain the tone curve controls",
@@ -18,165 +25,175 @@ local SUGGESTIONS = {
 }
 
 function ChatDialog.present()
-  local prefs = LrPrefs.prefsForPlugin()
-  
-  -- Skip API key check if already set (it's visible in Plug-in Manager)
-  -- Dialog will error gracefully if key is missing during API call
-
-  local f = LrView.osFactory()
-  local props = LrView.bindings.makePropertyTable(_G)
-  
-  props.userInput = ""
-  props.transcript = ""
-  props.isLoading = false
-  props.showSuggestions = true
-
-  -- Helper to add message to transcript
-  local function addToTranscript(role, message)
-    if props.transcript ~= "" then
-      props.transcript = props.transcript .. "\n\n"
-    end
+  LrFunctionContext.callWithContext('chatDialog', function(context)
+    local f = LrView.osFactory()
+    local props = LrBinding.makePropertyTable(context)
     
-    if role == "user" then
-      props.transcript = props.transcript .. "You: " .. message
-    else
-      props.transcript = props.transcript .. "Coach: " .. message
-    end
-  end
-
-  -- Send message handler
-  local function sendMessage(message)
-    if props.isLoading or message == "" then return end
-    
-    props.showSuggestions = false
-    addToTranscript("user", message)
+    -- Initialize properties
     props.userInput = ""
-    props.isLoading = true
-
-    LrTasks.startAsyncTask(function()
-      local context = OpenAI.getContext()
-      local response = OpenAI.ask(message, context)
-      
-      props.isLoading = false
-      
-      if response.success then
-        addToTranscript("assistant", response.text)
-        
-        -- Check for actions in response
-        Actions.maybePerform(response.text)
-      else
-        addToTranscript("assistant", "Error: " .. response.text)
-      end
-    end)
-  end
-
-  -- New chat handler
-  local function newChat()
     props.transcript = ""
-    props.userInput = ""
     props.showSuggestions = true
-  end
 
-  -- Build suggestion chips
-  local suggestionChips = {}
-  for i, suggestion in ipairs(SUGGESTIONS) do
-    table.insert(suggestionChips, f:push_button {
-      title = suggestion,
-      font = "<system/small>",
-      action = function() sendMessage(suggestion) end,
-      enabled = LrView.bind {
-        key = "showSuggestions",
-        transform = function(value) return value end
-      }
-    })
-  end
+    -- Helper to add message to transcript
+    local function addToTranscript(role, message)
+      if props.transcript ~= "" then
+        props.transcript = props.transcript .. "\n\n"
+      end
+      
+      if role == "user" then
+        props.transcript = props.transcript .. "You: " .. message
+      else
+        props.transcript = props.transcript .. "Coach: " .. message
+      end
+    end
 
-  local c = f:column {
-    bind_to_object = props,
-    fill_horizontal = 1,
-    spacing = f:control_spacing(),
-    
-    -- Header with New Chat button
-    f:row {
+    -- Send message handler
+    local function sendMessage(message)
+      if message == "" then return end
+      
+      props.showSuggestions = false
+      addToTranscript("user", message)
+      props.userInput = ""
+
+      LrTasks.startAsyncTask(function()
+        local contextData = OpenAI.getContext()
+        local response = OpenAI.ask(message, contextData)
+        
+        if response.success then
+          -- Parse and execute actions first
+          local actionResult = Actions.maybePerform(response.text)
+          
+          -- Strip JSON code blocks from display
+          local displayText = response.text
+          
+          -- Remove ```json...``` blocks (including newlines inside)
+          displayText = displayText:gsub("```json[^`]*```", "")
+          -- Remove any other ``` code blocks
+          displayText = displayText:gsub("```[^`]*```", "")
+          -- Clean up extra whitespace
+          displayText = displayText:gsub("^%s+", ""):gsub("%s+$", "")
+          
+          -- Only show if there's actual text left after stripping JSON
+          if displayText ~= "" then
+            addToTranscript("assistant", displayText)
+          elseif actionResult then
+            addToTranscript("assistant", "Applying settings...")
+          else
+            addToTranscript("assistant", "Done.")
+          end
+        else
+          addToTranscript("assistant", "Error: " .. response.text)
+        end
+      end)
+    end
+
+    -- New chat handler
+    local function newChat()
+      props.transcript = ""
+      props.userInput = ""
+      props.showSuggestions = true
+    end
+
+    -- Build UI
+    local contents = f:column {
+      bind_to_object = props,
       fill_horizontal = 1,
-      f:static_text {
-        title = "Lightroom Coach",
-        font = "<system/bold>",
-        text_color = LrColor(0.9, 0.9, 0.9)
-      },
-      f:spacer { fill_horizontal = 1 },
-      f:push_button {
-        title = "New Chat",
-        font = "<system/small>",
-        action = newChat
-      }
-    },
-    
-    f:separator { fill_horizontal = 1 },
-    
-    -- Transcript area
-    f:scrolled_view {
-      width = 600,
-      height = 400,
-      horizontal_scroller = false,
-      f:edit_field {
-        value = LrView.bind("transcript"),
-        width_in_chars = 70,
-        height_in_lines = 20,
-        enabled = false,
-        fill_horizontal = 1
-      }
-    },
-    
-    -- Suggestion chips (shown when transcript is empty)
-    f:column {
-      visible = LrView.bind("showSuggestions"),
-      spacing = f:control_spacing(),
-      f:static_text {
-        title = "Try asking:",
-        font = "<system/small>",
-        text_color = LrColor(0.7, 0.7, 0.7)
-      },
-      suggestionChips[1],
-      suggestionChips[2],
-      suggestionChips[3],
-      suggestionChips[4]
-    },
-    
-    f:separator { fill_horizontal = 1 },
-    
-    -- Input area
-    f:row {
-      fill_horizontal = 1,
-      spacing = f:control_spacing(),
-      f:edit_field {
-        value = LrView.bind("userInput"),
-        width_in_chars = 50,
+      spacing = f:label_spacing(),
+      margin = 15,
+      
+      -- Header with New Chat button
+      f:row {
         fill_horizontal = 1,
-        enabled = LrView.bind {
-          key = "isLoading",
-          transform = function(value) return not value end
+        margin_bottom = 10,
+        f:static_text {
+          title = "Lightroom Coach",
+          font = "<system/bold>"
+        },
+        f:spacer { fill_horizontal = 1 },
+        f:push_button {
+          title = "New Chat",
+          font = "<system/small>",
+          action = newChat
         }
       },
-      f:push_button {
-        title = LrView.bind {
-          key = "isLoading",
-          transform = function(value) return value and "Sending..." or "Send" end
+      
+      f:separator { fill_horizontal = 1, margin_bottom = 10 },
+      
+      -- Transcript area (read-only, reactive)
+      f:scrolled_view {
+        width = 600,
+        height = 400,
+        horizontal_scroller = false,
+        margin_bottom = 10,
+        f:edit_field {
+          value = LrView.bind("transcript"),
+          height_in_lines = 20,
+          width = 580,
+          enabled = false,
+          fill_horizontal = 1
+        }
+      },
+      
+      -- Suggestion buttons (conditionally visible)
+      f:column {
+        visible = LrView.bind("showSuggestions"),
+        spacing = f:label_spacing(),
+        margin_bottom = 10,
+        f:static_text {
+          title = "Try asking:",
+          font = "<system/small>",
+          margin_bottom = 5
         },
-        enabled = LrView.bind {
-          key = "isLoading",
-          transform = function(value) return not value end
+        f:push_button {
+          title = SUGGESTIONS[1],
+          font = "<system/small>",
+          action = function() sendMessage(SUGGESTIONS[1]) end
         },
-        action = function() sendMessage(props.userInput) end
+        f:push_button {
+          title = SUGGESTIONS[2],
+          font = "<system/small>",
+          action = function() sendMessage(SUGGESTIONS[2]) end
+        },
+        f:push_button {
+          title = SUGGESTIONS[3],
+          font = "<system/small>",
+          action = function() sendMessage(SUGGESTIONS[3]) end
+        },
+        f:push_button {
+          title = SUGGESTIONS[4],
+          font = "<system/small>",
+          action = function() sendMessage(SUGGESTIONS[4]) end
+        }
+      },
+      
+      f:separator { fill_horizontal = 1, margin_bottom = 10 },
+      
+      -- Input area
+      f:row {
+        fill_horizontal = 1,
+        spacing = f:label_spacing(),
+        f:edit_field {
+          value = LrView.bind("userInput"),
+          width_in_chars = 50,
+          fill_horizontal = 1
+        },
+        f:push_button {
+          title = "Send",
+          action = function() 
+            local msg = props.userInput
+            sendMessage(msg)
+          end
+        }
       }
     }
-  }
 
-  local result = LrDialogs.presentFloatingDialog(_PLUGIN, {
-    title = "Lightroom Coach",
-    contents = c,
-    resizable = true,
-  })
+    -- Present floating dialog
+    LrDialogs.presentFloatingDialog(_PLUGIN, {
+      title = "Lightroom Coach",
+      contents = contents
+    })
+  end)
 end
 
 return ChatDialog
+
