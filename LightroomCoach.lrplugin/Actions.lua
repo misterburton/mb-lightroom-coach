@@ -89,15 +89,16 @@ local function applyDevelopSettings(params)
     mappedParams[sdkKey] = value
   end
   
-  -- Apply new settings with proper context
+  -- Apply each setting individually so they appear as separate history entries
   local success = false
-  catalog:withWriteAccessDo("Apply Lightroom Coach Settings", function()
-    for _, p in ipairs(photos) do
-      -- Apply the mapped settings directly
-      p:applyDevelopSettings(mappedParams)
-      success = true
-    end
-  end)
+  for sdkKey, value in pairs(mappedParams) do
+    catalog:withWriteAccessDo("Lightroom Coach: " .. sdkKey, function()
+      for _, p in ipairs(photos) do
+        p:applyDevelopSettings({[sdkKey] = value})
+        success = true
+      end
+    end)
+  end
   
   if not success then
     LrDialogs.message("Failed", "Could not apply settings to photo.", "critical")

@@ -36,14 +36,17 @@ function ChatDialog.present()
 
     -- Helper to add message to transcript
     local function addToTranscript(role, message)
+      -- Convert literal \n escape sequences to actual newlines
+      local cleanMessage = message:gsub("\\n", "\n"):gsub("\\r", "")
+      
       if props.transcript ~= "" then
-        props.transcript = props.transcript .. "\n\n"
+        props.transcript = props.transcript .. "\n"
       end
       
       if role == "user" then
-        props.transcript = props.transcript .. "You: " .. message
+        props.transcript = props.transcript .. cleanMessage
       else
-        props.transcript = props.transcript .. "Coach: " .. message
+        props.transcript = props.transcript .. "  " .. cleanMessage
       end
     end
 
@@ -63,15 +66,21 @@ function ChatDialog.present()
           -- Parse and execute actions first
           local actionResult = Actions.maybePerform(response.text)
           
-          -- Strip JSON code blocks from display
+          -- Strip JSON from display (code blocks or raw JSON objects)
           local displayText = response.text
           
           -- Remove ```json...``` blocks (including newlines inside)
           displayText = displayText:gsub("```json[^`]*```", "")
           -- Remove any other ``` code blocks
           displayText = displayText:gsub("```[^`]*```", "")
-          -- Clean up extra whitespace
-          displayText = displayText:gsub("^%s+", ""):gsub("%s+$", "")
+          -- Remove raw JSON objects - iterate to handle nested braces
+          while displayText:find("{") do
+            local oldText = displayText
+            displayText = displayText:gsub("{[^{}]*}", "")
+            if displayText == oldText then break end -- prevent infinite loop
+          end
+          -- Clean up extra whitespace and newlines
+          displayText = displayText:gsub("^%s+", ""):gsub("%s+$", ""):gsub("\n+", "\n")
           
           -- Only show if there's actual text left after stripping JSON
           if displayText ~= "" then
@@ -99,12 +108,12 @@ function ChatDialog.present()
       bind_to_object = props,
       fill_horizontal = 1,
       spacing = f:label_spacing(),
-      margin = 15,
+      margin = 8,
       
       -- Header with New Chat button
       f:row {
         fill_horizontal = 1,
-        margin_bottom = 10,
+        margin_bottom = 5,
         f:static_text {
           title = "Lightroom Coach",
           font = "<system/bold>"
@@ -112,23 +121,22 @@ function ChatDialog.present()
         f:spacer { fill_horizontal = 1 },
         f:push_button {
           title = "New Chat",
-          font = "<system/small>",
           action = newChat
         }
       },
       
-      f:separator { fill_horizontal = 1, margin_bottom = 10 },
+      f:separator { fill_horizontal = 1, margin_bottom = 5 },
       
       -- Transcript area (read-only, reactive)
       f:scrolled_view {
-        width = 600,
+        width = 480,
         height = 400,
         horizontal_scroller = false,
-        margin_bottom = 10,
+        margin_bottom = 5,
         f:edit_field {
           value = LrView.bind("transcript"),
           height_in_lines = 20,
-          width = 580,
+          width = 460,
           enabled = false,
           fill_horizontal = 1
         }
@@ -137,45 +145,49 @@ function ChatDialog.present()
       -- Suggestion buttons (conditionally visible)
       f:column {
         visible = LrView.bind("showSuggestions"),
-        spacing = f:label_spacing(),
-        margin_bottom = 10,
-        f:static_text {
-          title = "Try asking:",
-          font = "<system/small>",
-          margin_bottom = 5
-        },
+        spacing = 3,
+        margin_bottom = 5,
         f:push_button {
           title = SUGGESTIONS[1],
-          font = "<system/small>",
           action = function() sendMessage(SUGGESTIONS[1]) end
         },
         f:push_button {
           title = SUGGESTIONS[2],
-          font = "<system/small>",
           action = function() sendMessage(SUGGESTIONS[2]) end
         },
         f:push_button {
           title = SUGGESTIONS[3],
-          font = "<system/small>",
           action = function() sendMessage(SUGGESTIONS[3]) end
         },
         f:push_button {
           title = SUGGESTIONS[4],
-          font = "<system/small>",
           action = function() sendMessage(SUGGESTIONS[4]) end
         }
       },
       
-      f:separator { fill_horizontal = 1, margin_bottom = 10 },
+      f:separator { fill_horizontal = 1, margin_bottom = 5 },
       
       -- Input area
       f:row {
         fill_horizontal = 1,
-        spacing = f:label_spacing(),
+        spacing = 5,
         f:edit_field {
           value = LrView.bind("userInput"),
-          width_in_chars = 50,
-          fill_horizontal = 1
+          width_in_chars = 40,
+          fill_horizontal = 1,
+          immediate = true,
+          validate = function(view, value)
+            -- Check for Enter/Return key
+            if value:find("\n") or value:find("\r") then
+              -- Remove the newline and send
+              local cleanValue = value:gsub("\n", ""):gsub("\r", "")
+              if cleanValue ~= "" then
+                sendMessage(cleanValue)
+              end
+              return false, "" -- Clear the field
+            end
+            return true, value
+          end
         },
         f:push_button {
           title = "Send",

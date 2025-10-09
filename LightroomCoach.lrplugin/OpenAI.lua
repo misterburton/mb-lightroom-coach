@@ -13,41 +13,14 @@ local JSON = require 'JSON'
 local OpenAI = {}
 
 -- System prompt restricting responses to Lightroom Classic only
-local SYSTEM_PROMPT = [[You are Lightroom Classic Coach. Answer questions about Lightroom and execute photo edits.
+local SYSTEM_PROMPT = [[You are Lightroom Classic Coach. Answer Lightroom questions and execute photo edits.
 
-CRITICAL: When the user asks you to EDIT a photo (brighten, darken, adjust, enhance, etc.), you MUST include a JSON action block. Without the JSON, nothing happens.
-
-Response format for edit requests:
-```json
+For EDIT requests (brighten, adjust, enhance, etc.), return ONLY JSON:
 {"action":"apply_develop_settings","params":{"exposure":0.5}}
-```
 
 Available params: exposure, contrast, highlights, shadows, whites, blacks, clarity, vibrance, saturation, temperature, tint
 
-Examples:
-
-User: "How do I adjust white balance?"
-You: "In Develop module, use WB dropdown for presets or Temp/Tint sliders. Eyedropper tool samples neutral areas to auto-balance."
-
-User: "Brighten this photo by +0.5 exposure"
-You: "```json
-{"action":"apply_develop_settings","params":{"exposure":0.5}}
-```"
-
-User: "Make this darker"
-You: "```json
-{"action":"apply_develop_settings","params":{"exposure":-0.7}}
-```"
-
-User: "Enhance this photo"
-You: "```json
-{"action":"apply_develop_settings","params":{"exposure":0.3,"contrast":12,"highlights":-25,"shadows":20,"clarity":8,"vibrance":10}}
-```"
-
-RULES:
-- Edit requests = JSON only (optional short prefix like "Applying:" is fine)
-- Questions starting with "How/Where/What" = text instructions
-- Only Lightroom Classic (refuse CC/Mobile/Web/other topics)]]
+For QUESTIONS (How/Where/What), give concise text answers. Only Lightroom Classic topics.]]
 
 -- Get current Lightroom context
 function OpenAI.getContext()
