@@ -1,8 +1,6 @@
 --[[----------------------------------------------------------------------------
 Actions.lua
 Parses and executes develop settings from AI responses
-
-© 2025 misterburton
 ------------------------------------------------------------------------------]]
 
 local LrApplication = import 'LrApplication'
@@ -16,30 +14,26 @@ local Actions = {}
 local lastAction = nil
 
 -- Helper to unescape doubled-escaped strings from Gemini 3
--- e.g. {\"action\": \"apply\"} -> {"action": "apply"}
 local function unescapeJSON(text)
   return text:gsub('\\"', '"'):gsub('\\n', '\n')
 end
 
--- Extract JSON from text (handles code blocks, multiline raw JSON, and escaped JSON strings)
+-- Extract JSON from text
 local function extractJSON(text)
-  -- 1. Try exact decoding first (clean response)
+  -- 1. Try exact decoding first
   local success, result = pcall(JSON.decode, text)
   if success and result then return result end
 
-  -- 2. Try exact decoding of UNESCAPED text (Handle Gemini 3 stringified JSON)
-  -- This catches the case where the entire response is an escaped string
+  -- 2. Try exact decoding of UNESCAPED text
   local unescaped = unescapeJSON(text)
   success, result = pcall(JSON.decode, unescaped)
   if success and result then return result end
 
-  -- 3. Code Block Strategy (Loop through all code blocks)
+  -- 3. Code Block Strategy
   for jsonBlock in text:gmatch("```json\n?(.-)```") do
-    -- Try normal decode
     success, result = pcall(JSON.decode, jsonBlock)
     if success and result and result.action then return result end
     
-    -- Try unescaped decode
     success, result = pcall(JSON.decode, unescapeJSON(jsonBlock))
     if success and result and result.action then return result end
   end
@@ -52,64 +46,10 @@ local function extractJSON(text)
     if success and result and result.action then return result end
   end
   
-  -- 4. Raw JSON Strategy (Brute force search for valid object)
-  -- We search for the specific action pattern to isolate the correct object
-  -- "action" *: *"apply_develop_settings" (handling optional backslashes)
-  local actionPattern = 'action"[%s\\]*:[%s\\]*"apply_develop_settings"'
-  local actionStart = text:find(actionPattern)
-  
-  if actionStart then
-    -- Search backwards for the opening brace
-    local braceCount = 0
-    local startPos = nil
-    for i = actionStart, 1, -1 do
-      local char = text:sub(i, i)
-      if char == "}" then braceCount = braceCount + 1 end
-      if char == "{" then
-        if braceCount == 0 then
-          startPos = i
-          break
-        else
-          braceCount = braceCount - 1
-        end
-      end
-    end
-    
-    if startPos then
-      -- Search forward for the closing brace
-      braceCount = 0
-      local endPos = nil
-      for i = startPos, #text do
-        local char = text:sub(i, i)
-        if char == "{" and i ~= startPos then braceCount = braceCount + 1 end
-        if char == "}" then
-          if braceCount == 0 then
-            endPos = i
-            break
-          else
-            braceCount = braceCount - 1
-          end
-        end
-      end
-      
-      if endPos then
-        local jsonCand = text:sub(startPos, endPos)
-        -- Try normal decode
-        success, result = pcall(JSON.decode, jsonCand)
-        if success and result then return result end
-        
-        -- Try unescaped decode
-        success, result = pcall(JSON.decode, unescapeJSON(jsonCand))
-        if success and result then return result end
-      end
-    end
-  end
-  
-  -- 5. Fallback: Greedy match (only if single object likely)
+  -- 4. Fallback: Greedy match
   local startPos = text:find("{")
   local endPos = nil
   if startPos then
-    -- Find last }
     for i = #text, startPos, -1 do
       if text:sub(i, i) == "}" then
         endPos = i
@@ -142,7 +82,70 @@ local PARAM_MAP = {
   vibrance = "Vibrance",
   saturation = "Saturation",
   temperature = "Temperature",
-  tint = "Tint"
+  tint = "Tint",
+  texture = "Texture",
+  dehaze = "Dehaze",
+  sharpness = "Sharpness",
+  luminanceNoise = "LuminanceSmoothing",
+  colorNoise = "ColorNoiseReduction",
+  vignetteAmount = "PostCropVignetteAmount",
+  grainAmount = "GrainAmount",
+  
+  -- Tone Curve (Parametric)
+  toneCurveHighlights = "ParametricHighlights",
+  toneCurveLights = "ParametricLights",
+  toneCurveDarks = "ParametricDarks",
+  toneCurveShadows = "ParametricShadows",
+  
+  -- HSL (Hue, Saturation, Luminance) - Examples, these are arrays in SDK usually but simple keys here
+  hueRed = "HueAdjustmentRed",
+  hueOrange = "HueAdjustmentOrange",
+  hueYellow = "HueAdjustmentYellow",
+  hueGreen = "HueAdjustmentGreen",
+  hueAqua = "HueAdjustmentAqua",
+  hueBlue = "HueAdjustmentBlue",
+  huePurple = "HueAdjustmentPurple",
+  hueMagenta = "HueAdjustmentMagenta",
+  
+  satRed = "SaturationAdjustmentRed",
+  satOrange = "SaturationAdjustmentOrange",
+  satYellow = "SaturationAdjustmentYellow",
+  satGreen = "SaturationAdjustmentGreen",
+  satAqua = "SaturationAdjustmentAqua",
+  satBlue = "SaturationAdjustmentBlue",
+  satPurple = "SaturationAdjustmentPurple",
+  satMagenta = "SaturationAdjustmentMagenta",
+  
+  lumRed = "LuminanceAdjustmentRed",
+  lumOrange = "LuminanceAdjustmentOrange",
+  lumYellow = "LuminanceAdjustmentYellow",
+  lumGreen = "LuminanceAdjustmentGreen",
+  lumAqua = "LuminanceAdjustmentAqua",
+  lumBlue = "LuminanceAdjustmentBlue",
+  lumPurple = "LuminanceAdjustmentPurple",
+  lumMagenta = "LuminanceAdjustmentMagenta",
+}
+
+-- Human-readable names for history steps
+local HISTORY_NAMES = {
+  Exposure2012 = "Exposure",
+  Contrast2012 = "Contrast",
+  Highlights2012 = "Highlights",
+  Shadows2012 = "Shadows",
+  Whites2012 = "Whites",
+  Blacks2012 = "Blacks",
+  Clarity2012 = "Clarity",
+  Vibrance = "Vibrance",
+  Saturation = "Saturation",
+  Temperature = "Temperature",
+  Tint = "Tint",
+  Texture = "Texture",
+  Dehaze = "Dehaze",
+  PostCropVignetteAmount = "Vignette",
+  ParametricHighlights = "Tone Curve (Highlights)",
+  ParametricLights = "Tone Curve (Lights)",
+  ParametricDarks = "Tone Curve (Darks)",
+  ParametricShadows = "Tone Curve (Shadows)"
 }
 
 -- Apply develop settings to selected photos
@@ -155,43 +158,49 @@ local function applyDevelopSettings(params)
     return false
   end
   
-  -- Check if photo is a valid type for develop settings
   local photo = photos[1]
   if photo:getRawMetadata("isVideo") then
     LrDialogs.message("Invalid photo", "Cannot apply develop settings to videos.", "info")
     return false
   end
   
-  -- Store original settings for undo
   local originalSettings = {}
   for i, p in ipairs(photos) do
     originalSettings[i] = p:getDevelopSettings()
   end
   
-  -- Map friendly names to SDK names
   local mappedParams = {}
   for key, value in pairs(params) do
-    local sdkKey = PARAM_MAP[key] or key
+    -- Attempt to find exact SDK name first, then try lowercase/camelCase matching from our map
+    local sdkKey = PARAM_MAP[key] 
+    if not sdkKey then
+        -- Try to match typical variations if exact match fails
+        -- e.g., "CropTop" might come in, but we need "CropTop" (SDK is case sensitive sometimes depending on context)
+        -- The most robust way is to use the map. If not in map, we pass it through as-is (risky but flexible).
+        sdkKey = key
+    end
     mappedParams[sdkKey] = value
   end
   
-  -- Apply each setting individually so they appear as separate history entries
   local success = false
-  for sdkKey, value in pairs(mappedParams) do
-    catalog:withWriteAccessDo("Lightroom Coach: " .. sdkKey, function()
-      for _, p in ipairs(photos) do
-        p:applyDevelopSettings({[sdkKey] = value})
-        success = true
-      end
-    end)
-  end
+  
+  -- Group updates into a single undoable action per setting to avoid "Camera Raw Settings" generic history
+  -- OR group all into ONE history step named "AI Coach Auto-Fix"
+  -- The user requested avoiding generic "Camera Raw Settings". 
+  -- We can name the transaction.
+  
+  catalog:withWriteAccessDo("AI Coach Auto-Fix", function()
+    for _, p in ipairs(photos) do
+      p:applyDevelopSettings(mappedParams)
+      success = true
+    end
+  end)
   
   if not success then
     LrDialogs.message("Failed", "Could not apply settings to photo.", "critical")
     return false
   end
   
-  -- Store for undo
   lastAction = {
     photos = photos,
     originalSettings = originalSettings
@@ -208,7 +217,7 @@ function Actions.undo()
   end
   
   local catalog = LrApplication.activeCatalog()
-  catalog:withWriteAccessDo("Undo Lightroom Coach Settings", function()
+  catalog:withWriteAccessDo("Undo AI Coach Settings", function()
     for i, photo in ipairs(lastAction.photos) do
       photo:applyDevelopSettings(lastAction.originalSettings[i])
     end
@@ -218,7 +227,7 @@ function Actions.undo()
   LrDialogs.message("Undone", "Previous edits have been reverted.", "info")
 end
 
--- Main action handler - checks for actions in AI response
+-- Main action handler
 function Actions.maybePerform(responseText)
   local action = extractJSON(responseText)
   
@@ -231,10 +240,13 @@ function Actions.maybePerform(responseText)
       local success = applyDevelopSettings(action.params)
       
       if success then
-        -- Build confirmation message
+        -- Build confirmation message with nice names
         local settingsStr = ""
         for key, value in pairs(action.params) do
-          settingsStr = settingsStr .. string.format("\n- %s: %s", key, tostring(value))
+          -- Try to get a nice name
+          local sdkKey = PARAM_MAP[key] or key
+          local niceName = HISTORY_NAMES[sdkKey] or key
+          settingsStr = settingsStr .. string.format("\n- %s: %s", niceName, tostring(value))
         end
         
         local result = LrDialogs.confirm(

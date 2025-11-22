@@ -38,21 +38,46 @@ function ChatDialog.present()
     -- Initialize chat history (not bound to UI, just internal state)
     local chatHistory = {}
 
+    -- Helper to clean markdown syntax for plain text display
+    local function cleanMarkdown(text)
+      local t = text
+      -- Headers: ### Header -> HEADER (uppercase)
+      t = t:gsub("###%s*([^\n]+)", function(s) return string.upper(s) end)
+      
+      -- Bold: **text** -> text
+      t = t:gsub("%*%*([^*]+)%*%*", "%1")
+      
+      -- Italic: _text_ -> text
+      t = t:gsub("_([^_]+)_", "%1")
+      
+      -- Lists: * item or - item -> • item
+      t = t:gsub("\n[%*%-]%s", "\n• ")
+      t = t:gsub("^[%*%-]%s", "• ")
+      
+      -- Monospace: `text` -> 'text'
+      t = t:gsub("`([^`]+)`", "'%1'")
+      
+      return t
+    end
+
     -- Helper to add message to transcript
     local function addToTranscript(role, message)
       -- Convert literal \n escape sequences to actual newlines
       local cleanMessage = message:gsub("\\n", "\n"):gsub("\\r", "")
       
+      -- Clean markdown formatting for display
+      cleanMessage = cleanMarkdown(cleanMessage)
+      
       if props.transcript ~= "" then
-        props.transcript = props.transcript .. "\n"
+        props.transcript = props.transcript .. "\n\n" -- Add double newline for better separation
       end
       
       if role == "user" then
-        props.transcript = props.transcript .. cleanMessage
+        props.transcript = props.transcript .. "YOU: " .. cleanMessage
         -- Add to history
         table.insert(chatHistory, { role = "user", text = message })
       else
-        props.transcript = props.transcript .. "  " .. cleanMessage
+        props.transcript = props.transcript .. "COACH: " .. cleanMessage
         -- Add to history
         table.insert(chatHistory, { role = "assistant", text = message })
       end
@@ -124,7 +149,8 @@ function ChatDialog.present()
       end
       
       props.showSuggestions = false
-      addToTranscript("assistant", "Analyzing photo... (This may take a few seconds)")
+      -- Use more accurate loading text as requested
+      addToTranscript("assistant", "Analyzing photo... (This may take up to 30 seconds)")
       
       LrTasks.startAsyncTask(function()
          local response = Gemini.analyze(photo)
@@ -168,18 +194,23 @@ function ChatDialog.present()
       
       f:separator { fill_horizontal = 1, margin_bottom = 5 },
       
-      -- Transcript area (read-only, reactive)
+      -- Transcript area
+      -- FIX: Reverting to edit_field for reliable data binding.
+      -- FIX: Using a large height_in_lines (100) inside a constrained scrolled_view.
+      -- This forces the edit_field to be tall enough to hold content, triggering the scrolled_view's scrollbar.
       f:scrolled_view {
         width = 480,
         height = 400,
         horizontal_scroller = false,
+        vertical_scroller = true,
         margin_bottom = 5,
+        
         f:edit_field {
           value = LrView.bind("transcript"),
-          height_in_lines = 20,
-          width = 460,
-          enabled = false,
-          fill_horizontal = 1
+          width_in_chars = 50, -- Ensure generous width
+          height_in_lines = 100, -- FORCE large height to trigger scroll
+          enabled = false, -- Read-only
+          wraps = true -- Ensure text wrapping
         }
       },
       
