@@ -10,6 +10,7 @@ local LrView = import 'LrView'
 local LrBinding = import 'LrBinding'
 local LrFunctionContext = import 'LrFunctionContext'
 local LrTasks = import 'LrTasks'
+local LrApplication = import 'LrApplication'
 
 local Gemini = require 'Gemini'
 local Actions = require 'Actions'
@@ -57,6 +58,42 @@ function ChatDialog.present()
       end
     end
 
+    -- Helper to process AI response
+    local function processResponse(response)
+      if response.success then
+        -- Parse and execute actions first
+        local actionResult = Actions.maybePerform(response.text)
+        
+        -- Strip JSON from display (code blocks or raw JSON objects)
+        local displayText = response.text
+        
+        -- Remove ```json...``` blocks (including newlines inside)
+        displayText = displayText:gsub("```json[^`]*```", "")
+        -- Remove any other ``` code blocks
+        displayText = displayText:gsub("```[^`]*```", "")
+        -- Remove raw JSON objects - iterate to handle nested braces
+        while displayText:find("{") do
+          local oldText = displayText
+          displayText = displayText:gsub("{[^{}]*}", "")
+          if displayText == oldText then break end -- prevent infinite loop
+        end
+        -- Clean up extra whitespace and newlines
+        displayText = displayText:gsub("^%s+", ""):gsub("%s+$", ""):gsub("\n+", "\n")
+        
+        -- Only show if there's actual text left after stripping JSON
+        if displayText ~= "" then
+          addToTranscript("assistant", displayText)
+        elseif actionResult then
+          addToTranscript("assistant", "Applying settings...")
+        else
+          -- Parsing failed but we received *something*. Show the raw text so the user isn't confused.
+          addToTranscript("assistant", "Could not identify action. Raw response:\n" .. response.text)
+        end
+      else
+        addToTranscript("assistant", "Error: " .. response.text)
+      end
+    end
+
     -- Send message handler
     local function sendMessage(message)
       if message == "" then return end
@@ -66,45 +103,32 @@ function ChatDialog.present()
       props.userInput = ""
 
       LrTasks.startAsyncTask(function()
-        -- Standard error handling via success checks in modules (cannot use pcall across yield boundaries in Lua 5.1)
+        -- Standard error handling via success checks in modules
         local contextData = Gemini.getContext()
         
         -- Pass entire history to Gemini.ask
         local response = Gemini.ask(chatHistory, contextData)
         
-        if response.success then
-          -- Parse and execute actions first
-          local actionResult = Actions.maybePerform(response.text)
-          
-          -- Strip JSON from display (code blocks or raw JSON objects)
-          local displayText = response.text
-          
-          -- Remove ```json...``` blocks (including newlines inside)
-          displayText = displayText:gsub("```json[^`]*```", "")
-          -- Remove any other ``` code blocks
-          displayText = displayText:gsub("```[^`]*```", "")
-          -- Remove raw JSON objects - iterate to handle nested braces
-          while displayText:find("{") do
-            local oldText = displayText
-            displayText = displayText:gsub("{[^{}]*}", "")
-            if displayText == oldText then break end -- prevent infinite loop
-          end
-          -- Clean up extra whitespace and newlines
-          displayText = displayText:gsub("^%s+", ""):gsub("%s+$", ""):gsub("\n+", "\n")
-          
-          -- Only show if there's actual text left after stripping JSON
-          if displayText ~= "" then
-            addToTranscript("assistant", displayText)
-          elseif actionResult then
-            addToTranscript("assistant", "Applying settings...")
-          else
-            -- Parsing failed but we received *something*. Show the raw text so the user isn't confused.
-            -- Often this happens if the AI returns text that looks like JSON but failed our parser.
-            addToTranscript("assistant", "Could not identify action. Raw response:\n" .. response.text)
-          end
-        else
-          addToTranscript("assistant", "Error: " .. response.text)
-        end
+        processResponse(response)
+      end)
+    end
+    
+    -- Analyze photo handler
+    local function analyzePhoto()
+      local catalog = LrApplication.activeCatalog()
+      local photo = catalog:getTargetPhoto()
+      
+      if not photo then
+         LrDialogs.message("No Photo Selected", "Please select a photo to analyze.", "info")
+         return
+      end
+      
+      props.showSuggestions = false
+      addToTranscript("assistant", "Analyzing photo... (This may take a few seconds)")
+      
+      LrTasks.startAsyncTask(function()
+         local response = Gemini.analyze(photo)
+         processResponse(response)
       end)
     end
 
@@ -123,7 +147,7 @@ function ChatDialog.present()
       spacing = f:label_spacing(),
       margin = 8,
       
-      -- Header with New Chat button
+      -- Header with Analyze and New Chat buttons
       f:row {
         fill_horizontal = 1,
         margin_bottom = 5,
@@ -132,6 +156,10 @@ function ChatDialog.present()
           font = "<system/bold>"
         },
         f:spacer { fill_horizontal = 1 },
+        f:push_button {
+            title = "📷 Analyze & Coach",
+            action = analyzePhoto
+        },
         f:push_button {
           title = "New Chat",
           action = newChat
