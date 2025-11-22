@@ -40,8 +40,8 @@ function Gemini.getContext()
   }
 end
 
--- Send question to Gemini API
-function Gemini.ask(question, context)
+-- Send message history to Gemini API
+function Gemini.ask(history, context)
   local prefs = LrPrefs.prefsForPlugin()
   local apiKey = prefs.gemini_api_key or ""
   
@@ -52,7 +52,7 @@ function Gemini.ask(question, context)
     } 
   end
 
-  -- Build context string
+  -- Build context string (only append to the last user message or system prompt)
   local contextStr = ""
   if context then
     contextStr = string.format("\n\nCurrent Context:\n- Module: %s\n- Selected Photos: %d", 
@@ -60,22 +60,31 @@ function Gemini.ask(question, context)
       context.photoCount or 0)
   end
 
+  -- Convert chat history to Gemini 'contents' format
+  local contents = {}
+  for i, msg in ipairs(history) do
+    local text = msg.text
+    -- Append context only to the latest user message
+    if i == #history and msg.role == "user" then
+      text = text .. contextStr
+    end
+    
+    table.insert(contents, {
+      role = msg.role == "assistant" and "model" or "user",
+      parts = {
+        { text = text }
+      }
+    })
+  end
+
   -- Build request body for Gemini
-  -- Gemini uses 'contents' array and 'systemInstruction'
   local body = JSON.encode({
     systemInstruction = {
       parts = {
         { text = SYSTEM_PROMPT }
       }
     },
-    contents = {
-      {
-        role = "user",
-        parts = {
-          { text = question .. contextStr }
-        }
-      }
-    },
+    contents = contents,
     generationConfig = {
       temperature = 0.7,
       maxOutputTokens = 1000,
@@ -139,4 +148,3 @@ function Gemini.ask(question, context)
 end
 
 return Gemini
-

@@ -33,6 +33,9 @@ function ChatDialog.present()
     props.userInput = ""
     props.transcript = ""
     props.showSuggestions = true
+    
+    -- Initialize chat history (not bound to UI, just internal state)
+    local chatHistory = {}
 
     -- Helper to add message to transcript
     local function addToTranscript(role, message)
@@ -45,8 +48,12 @@ function ChatDialog.present()
       
       if role == "user" then
         props.transcript = props.transcript .. cleanMessage
+        -- Add to history
+        table.insert(chatHistory, { role = "user", text = message })
       else
         props.transcript = props.transcript .. "  " .. cleanMessage
+        -- Add to history
+        table.insert(chatHistory, { role = "assistant", text = message })
       end
     end
 
@@ -61,7 +68,9 @@ function ChatDialog.present()
       LrTasks.startAsyncTask(function()
         -- Standard error handling via success checks in modules (cannot use pcall across yield boundaries in Lua 5.1)
         local contextData = Gemini.getContext()
-        local response = Gemini.ask(message, contextData)
+        
+        -- Pass entire history to Gemini.ask
+        local response = Gemini.ask(chatHistory, contextData)
         
         if response.success then
           -- Parse and execute actions first
@@ -104,6 +113,7 @@ function ChatDialog.present()
       props.transcript = ""
       props.userInput = ""
       props.showSuggestions = true
+      chatHistory = {} -- Clear history
     end
 
     -- Build UI
@@ -211,4 +221,3 @@ function ChatDialog.present()
 end
 
 return ChatDialog
-
