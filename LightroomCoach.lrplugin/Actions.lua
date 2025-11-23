@@ -184,17 +184,56 @@ local function applyDevelopSettings(params)
   
   local success = false
   
-  -- Group updates into a single undoable action per setting to avoid "Camera Raw Settings" generic history
-  -- OR group all into ONE history step named "AI Coach Auto-Fix"
-  -- The user requested avoiding generic "Camera Raw Settings". 
-  -- We can name the transaction.
-  
-  catalog:withWriteAccessDo("AI Coach Auto-Fix", function()
-    for _, p in ipairs(photos) do
-      p:applyDevelopSettings(mappedParams)
+  -- Group updates into logical sequence for history
+  -- Order matters for history readability: Crop -> Basics -> Tone -> Color -> Details -> Effects
+  local ORDERED_KEYS = {
+    -- Basics
+    "Exposure2012", "Contrast2012", 
+    "Highlights2012", "Shadows2012", "Whites2012", "Blacks2012",
+    "Temperature", "Tint",
+    -- Presence
+    "Clarity2012", "Dehaze", "Vibrance", "Saturation", "Texture",
+    -- Tone Curve
+    "ParametricHighlights", "ParametricLights", "ParametricDarks", "ParametricShadows",
+    -- Effects
+    "PostCropVignetteAmount", "GrainAmount", "Sharpening", "LuminanceSmoothing", "ColorNoiseReduction"
+  }
+
+  -- Create a set for quick lookup of processed keys
+  local processed = {}
+
+  -- Apply ordered settings individually to create distinct history steps
+  for _, key in ipairs(ORDERED_KEYS) do
+    if mappedParams[key] then
+      local val = mappedParams[key]
+      local niceName = HISTORY_NAMES[key] or key
+      
+      -- Each setting gets its own transaction for history visibility
+      catalog:withWriteAccessDo("AI Coach: " .. niceName, function()
+        for _, p in ipairs(photos) do
+          p:applyDevelopSettings({ [key] = val })
+        end
+      end)
+      
+      processed[key] = true
       success = true
     end
-  end)
+  end
+
+  -- Apply remaining settings (if any were missed in the ordered list)
+  for key, val in pairs(mappedParams) do
+    if not processed[key] then
+       local niceName = HISTORY_NAMES[key] or key
+       catalog:withWriteAccessDo("AI Coach: " .. niceName, function()
+         for _, p in ipairs(photos) do
+           p:applyDevelopSettings({ [key] = val })
+         end
+       end)
+       success = true
+    end
+  end
+  
+  -- No single "AI Coach Auto-Fix" block anymore. We used individual blocks.
   
   if not success then
     LrDialogs.message("Failed", "Could not apply settings to photo.", "critical")
