@@ -79,6 +79,23 @@ function ChatDialog.present()
          t = t:gsub("Refining Editing Parameters", "𝗥𝗲𝗳𝗶𝗻𝗶𝗻𝗴 𝗘𝗱𝗶𝘁𝗶𝗻𝗴 𝗣𝗮𝗿𝗮𝗺𝗲𝘁𝗲𝗿𝘀")
       end
       
+      -- Bold "Formulating" header
+      if t:find("Formulating") then
+         t = t:gsub("Formulating", "𝗙𝗼𝗿𝗺𝘂𝗹𝗮𝘁𝗶𝗻𝗴")
+      end
+      
+      -- Sanitize Technical Jargon in Thoughts
+      t = t:gsub("JSON parameters", "automated settings")
+      t = t:gsub("JSON block", "automated settings")
+      t = t:gsub("JSON", "system")
+      
+      -- Force double newlines after numbered headers (1️⃣ Step Name) for visual separation
+      t = t:gsub("(\n%s*%d+️⃣[^\n]+)\n", "%1\n\n")
+      t = t:gsub("(\n%s*%d+️⃣[^\n]+)$", "%1\n\n") 
+      
+      -- Force TRIPLE newline before bulleted lists (• or -) if not present for extra separation
+      t = t:gsub("([^\n])\n([•%-]%s)", "%1\n\n\n%2")
+      
       return t
     end
 
