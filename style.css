@@ -116,6 +116,10 @@ h1 {
     text-align: center;
 }
 
+.beta-text {
+    font-size: 0.8em;
+}
+
 h2 {
     font-family: 'Andale Mono', monospace;
     text-transform: lowercase;
@@ -232,6 +236,10 @@ footer a {
     width: fit-content;
 }
 
+.download-btn-top {
+    margin: 3rem auto 3rem;
+}
+
 .download-btn span {
     position: relative;
 }
@@ -310,6 +318,30 @@ footer a {
 
 .section {
     margin-bottom: 3rem;
+}
+
+.how-it-works-image {
+    width: 90%;
+    max-width: 100%;
+    height: auto;
+    display: block;
+    margin: 2rem auto;
+}
+
+.transparent-learning-image {
+    width: 60%;
+    max-width: 100%;
+    height: auto;
+    display: block;
+    margin: 2rem auto;
+}
+
+.install-image {
+    width: 50%;
+    max-width: 100%;
+    height: auto;
+    display: block;
+    margin: 2rem auto;
 }
 
 code {

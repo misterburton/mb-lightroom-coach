@@ -46,7 +46,7 @@
                 <path d="M8,17h8v-.55c0-.75-.37-1.35-1.1-1.79s-1.7-.66-2.9-.66-2.17.22-2.9.66-1.1,1.04-1.1,1.79v.55ZM12,13c.55,0,1.02-.2,1.41-.59s.59-.86.59-1.41-.2-1.02-.59-1.41-.86-.59-1.41-.59-1.02.2-1.41.59-.59.86-.59,1.41.2,1.02.59,1.41.86.59,1.41.59ZM4,21c-.55,0-1.02-.2-1.41-.59-.39-.39-.59-.86-.59-1.41V7c0-.55.2-1.02.59-1.41s.86-.59,1.41-.59h3.15l1.85-2h6l1.85,2h3.15c.55,0,1.02.2,1.41.59s.59.86.59,1.41v12c0,.55-.2,1.02-.59,1.41-.39.39-.86.59-1.41.59H4ZM4,19h16V7h-4.05l-1.83-2h-4.25l-1.83,2h-4.05v12Z"/>
             </svg>
         </div>
-        <h1 class="adjust-spacing">Lightroom Coach</h1>
+        <h1 class="adjust-spacing">Lightroom Coach <span class="beta-text">[beta]</span></h1>
         
         <p class="tagline">Your AI teaching assistant in Adobe Lightroom</p>
         
@@ -56,7 +56,9 @@
         </div>
         
         <div class="content-container">
-            <p>Lightroom Classic Coach is a plugin that helps you learn photo editing while you work. Instead of applying automatic filters that hide the process, it shows you what professional editors do and explains why each adjustment improves your image.</p>
+            <p>Lightroom Coach is a plugin that helps you learn photo editing while you work. Instead of applying automatic filters that hide the process, it explains why each adjustment was made to improve your image.</p>
+            
+            <div class="download-btn download-btn-top" role="button" tabindex="0" data-href="https://github.com/misterburton/mb-lightroom-classic-coach/releases/download/v1.0.0/LightroomCoach.lrplugin.zip"><span>Download Lightroom Coach</span></div>
             
             <p>The plugin uses Google's <code>Gemini 3</code> and <code>Nano Banana Pro</code> AI models to analyze your photos and answer technical questions. When it makes edits, every change appears in your Lightroom History panel. You can step through each adjustment to see exactly which sliders moved and understand the reasoning behind them.</p>
             
@@ -65,6 +67,8 @@
                 
                 <h3>Visual analysis and coaching</h3>
                 <p>Click <code>"Analyze & Coach"</code> and the AI evaluates your selected photo. You'll get specific feedback on composition, exposure, and color, along with a proposed editing strategy tailored to that image.</p>
+                
+                <img src="img/how-it-works.jpg" alt="Lightroom Coach interface showing analysis and coaching" class="how-it-works-image">
                 
                 <h3>Natural language queries</h3>
                 <p>Ask questions as you edit:</p>
@@ -75,7 +79,9 @@
                 </ul>
                 
                 <h3>Transparent learning</h3>
-                <p>When the Coach adjusts your photo—brightening shadows, warming white balance, or refining contrast—it documents each step in Lightroom's History panel. You can rewind through the edits to see which parameters changed and replicate the technique on future photos.</p>
+                <p>When the Coach adjusts your photo &mdash; brightening shadows, warming white balance, or refining contrast &mdash; it documents each step in Lightroom's History panel. You can rewind through the edits to see which parameters changed and replicate the technique on future photos.</p>
+                
+                <img src="img/transparent-learning.jpg" alt="Lightroom History panel showing Coach adjustments" class="transparent-learning-image">
             </div>
             
             <div class="section">
@@ -96,18 +102,20 @@
                 
                 <h3>Install the plugin</h3>
                 <ol>
-                    <li><a href="https://github.com/misterburton/mb-lightroom-classic-coach/releases/download/v1.0.0/LightroomCoach.lrplugin.zip" target="_blank" rel="noopener noreferrer">Download</a> the <code>LightroomCoach.lrplugin.zip</code> file and extract it</li>
+                    <li><a href="https://github.com/misterburton/mb-lightroom-classic-coach/releases/download/v1.0.0/LightroomCoach.lrplugin.zip" target="_blank" rel="noopener noreferrer">Download</a> the <code>LightroomCoach.lrplugin.zip</code> file and unzip it</li>
                     <li>Open Adobe Lightroom Classic</li>
                     <li>Go to <code>File > Plug-in Manager</code></li>
                     <li>Click <code>Add</code> in the bottom left</li>
-                    <li>Select the <code>LightroomCoach.lrplugin</code> folder</li>
+                    <li>Select the <code>LightroomCoach.lrplugin</code> file</li>
                 </ol>
+                
+                <img src="img/install-the-plugin.jpg" alt="Lightroom Plug-in Manager with Add button highlighted" class="install-image">
                 
                 <h3>Configure your key</h3>
                 <ol>
                     <li>In the Plug-in Manager, select <code>Lightroom Coach</code> from the left panel</li>
                     <li>Find the <code>Gemini API Key</code> field on the right</li>
-                    <li>Paste your Pay-as-you-go API key</li>
+                    <li>Paste your <code>Pay-as-you-go API</code> key</li>
                 </ol>
                 
                 <h3>Start using it</h3>
