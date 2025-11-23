@@ -56,12 +56,15 @@ function ChatDialog.present()
       
       -- Monospace: `text` -> 'text'
       t = t:gsub("`([^`]+)`", "'%1'")
+
+      -- Unescape quotes: \" -> "
+      t = t:gsub('\\"', '"')
       
       return t
     end
 
     -- Helper to add message to transcript
-    local function addToTranscript(role, message)
+    local function addToTranscript(role, message, skipPrefix)
       -- Convert literal \n escape sequences to actual newlines
       local cleanMessage = message:gsub("\\n", "\n"):gsub("\\r", "")
       
@@ -77,7 +80,11 @@ function ChatDialog.present()
         -- Add to history
         table.insert(chatHistory, { role = "user", text = message })
       else
-        props.transcript = props.transcript .. "COACH: " .. cleanMessage
+        if skipPrefix then
+            props.transcript = props.transcript .. cleanMessage
+        else
+            props.transcript = props.transcript .. "COACH: " .. cleanMessage
+        end
         -- Add to history
         table.insert(chatHistory, { role = "assistant", text = message })
       end
@@ -107,7 +114,9 @@ function ChatDialog.present()
         
         -- Only show if there's actual text left after stripping JSON
         if displayText ~= "" then
-          addToTranscript("assistant", displayText)
+          -- Check if this is a rich formatted analysis (starts with heavy separator or header)
+          local isAnalysis = displayText:find("════") or displayText:find("𝐀𝐍𝐀𝐋𝐘𝐒𝐈𝐒") or displayText:find("𝐂𝐎𝐀𝐂𝗛")
+          addToTranscript("assistant", displayText, isAnalysis)
         elseif actionResult then
           addToTranscript("assistant", "Applying settings...")
         else
@@ -150,7 +159,7 @@ function ChatDialog.present()
       
       props.showSuggestions = false
       -- Use more accurate loading text as requested
-      addToTranscript("assistant", "Analyzing photo... (This may take up to 30 seconds)")
+      addToTranscript("assistant", "Analyzing photo... (This may take up to 30 seconds)", true)
       
       LrTasks.startAsyncTask(function()
          local response = Gemini.analyze(photo)
