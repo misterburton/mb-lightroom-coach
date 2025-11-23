@@ -292,7 +292,7 @@ function Gemini.ask(history, context)
     contents = contents,
     generationConfig = {
       temperature = 0.7,
-      maxOutputTokens = 1000,
+      maxOutputTokens = 25000,
     }
   })
 
@@ -380,7 +380,7 @@ function Gemini.analyze(photo)
     },
     generationConfig = {
       temperature = 0.4,
-      maxOutputTokens = 8192,
+      maxOutputTokens = 25000,
       thinkingConfig = { includeThoughts = true }, -- Enable thinking for Nano Banana
     }
   })
