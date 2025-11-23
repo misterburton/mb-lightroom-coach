@@ -29,44 +29,62 @@ local function extractJSON(text)
   success, result = pcall(JSON.decode, unescaped)
   if success and result then return result end
 
-  -- 3. Code Block Strategy
-  for jsonBlock in text:gmatch("```json\n?(.-)```") do
-    success, result = pcall(JSON.decode, jsonBlock)
-    if success and result and result.action then return result end
-    
-    success, result = pcall(JSON.decode, unescapeJSON(jsonBlock))
-    if success and result and result.action then return result end
-  end
+  -- 3. Robust Code Block Strategy
+  -- Look for specific JSON delimiters that contain our expected "action" key
+  -- This avoids greedy matching of unrelated curly braces
   
-  for jsonBlock in text:gmatch("```\n?(.-)```") do
-    success, result = pcall(JSON.decode, jsonBlock)
-    if success and result and result.action then return result end
-    
-    success, result = pcall(JSON.decode, unescapeJSON(jsonBlock))
-    if success and result and result.action then return result end
-  end
+  -- Pattern: Find { ... "action" ... } 
+  -- We iterate through all potential JSON blocks found by matching balanced braces (conceptually)
+  -- Lua doesn't support recursive patterns for balanced braces, so we use a heuristic approach
+  -- finding the first '{' and trying to parse incrementally larger chunks is safer than greedy regex.
   
-  -- 4. Fallback: Greedy match
-  local startPos = text:find("{")
-  local endPos = nil
-  if startPos then
-    for i = #text, startPos, -1 do
-      if text:sub(i, i) == "}" then
-        endPos = i
-        break
+  local function findJsonCandidates(str)
+    local candidates = {}
+    local pos = 1
+    while true do
+      local startP = string.find(str, "{", pos)
+      if not startP then break end
+      
+      -- Optimization: Only look if it looks like it might contain our keywords nearby
+      -- (optional, but good for speed on large texts)
+      
+      -- Try to find the matching closing brace by counting nesting
+      local balance = 0
+      local endP = nil
+      for i = startP, #str do
+        local char = string.sub(str, i, i)
+        if char == "{" then
+          balance = balance + 1
+        elseif char == "}" then
+          balance = balance - 1
+          if balance == 0 then
+            endP = i
+            break
+          end
+        end
+      end
+      
+      if endP then
+        table.insert(candidates, string.sub(str, startP, endP))
+        pos = startP + 1 -- Advance just past the opening brace to find nested or subsequent objects
+      else
+        pos = startP + 1 -- Unmatched brace, move on
       end
     end
+    return candidates
   end
-  
-  if startPos and endPos then
-    local rawJSON = text:sub(startPos, endPos)
-    success, result = pcall(JSON.decode, rawJSON)
-    if success and result then return result end
+
+  local candidates = findJsonCandidates(text)
+  for _, candidate in ipairs(candidates) do
+    -- Try raw
+    local success, result = pcall(JSON.decode, candidate)
+    if success and result and result.action then return result end
     
-    success, result = pcall(JSON.decode, unescapeJSON(rawJSON))
-    if success and result then return result end
+    -- Try unescaped
+    success, result = pcall(JSON.decode, unescapeJSON(candidate))
+    if success and result and result.action then return result end
   end
-  
+
   return nil
 end
 
@@ -197,6 +215,25 @@ local function sanitizeTemperature(photo, aiValue)
   return sliderVal
 end
 
+-- TINT GUARD
+-- Centralized Logic to sanitize tint values
+local function sanitizeTint(photo, aiValue)
+    if not aiValue then return nil end
+    
+    -- Tint is generally -150 to +150 in Lightroom SDK 
+    -- However, let's be safe and clamp to this range.
+    -- AI might send generic slider values (-100 to 100).
+    
+    local safeTint = aiValue
+    
+    -- Safety Clamp
+    if safeTint < -150 then safeTint = -150 end
+    if safeTint > 150 then safeTint = 150 end
+    
+    return safeTint
+end
+
+
 -- Apply develop settings to selected photos
 local function applyDevelopSettings(params)
   local catalog = LrApplication.activeCatalog()
@@ -259,9 +296,11 @@ local function applyDevelopSettings(params)
       -- Each setting gets its own transaction for history visibility
       catalog:withWriteAccessDo("AI Coach: " .. niceName, function()
         for _, p in ipairs(photos) do
-          -- Use centralized sanitizer for Temperature (even if it's not in this list yet, but it isn't)
+          -- Use centralized sanitizer for Temperature 
           if key == "Temperature" then
              val = sanitizeTemperature(p, val)
+          elseif key == "Tint" then
+             val = sanitizeTint(p, val)
           end
           p:applyDevelopSettings({ [key] = val })
         end
@@ -273,8 +312,6 @@ local function applyDevelopSettings(params)
   end
 
   -- Apply remaining settings (if any were missed in the ordered list)
-  -- CRITICAL FIX: This loop was previously applying Temperature blindly if it wasn't in ORDERED_KEYS.
-  -- Now we apply the sanitize logic here too.
   for key, val in pairs(mappedParams) do
     if not processed[key] then
        local niceName = HISTORY_NAMES[key] or key
@@ -283,6 +320,8 @@ local function applyDevelopSettings(params)
             local finalVal = val
             if key == "Temperature" then
                 finalVal = sanitizeTemperature(p, val)
+            elseif key == "Tint" then
+                finalVal = sanitizeTint(p, val)
             end
             p:applyDevelopSettings({ [key] = finalVal })
          end
