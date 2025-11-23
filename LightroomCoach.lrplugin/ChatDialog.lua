@@ -209,7 +209,7 @@ function ChatDialog.present()
         f:edit_field {
           value = LrView.bind("transcript"),
           width = 450, -- Prevent horizontal scroll
-          height_in_lines = 60, -- REDUCED from 200 to 60
+          height_in_lines = 100, -- Increased to accommodate rich formatting
           enabled = false, 
           wraps = true
         }

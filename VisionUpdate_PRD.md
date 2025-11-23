@@ -34,3 +34,6 @@
 -   `require 'Base64'` loads successfully without error.
 -   Clicking "Analyze" sends the image and returns a valid critique + edit suggestions.
 -   Edits are applied to the photo automatically.
+
+## Verification Log
+-   **[2025-11-23] Rich Text Formatting:** Implemented Unicode/ASCII pseudo-formatting in `Gemini.lua` system prompt to improve readability of plain text responses. Increased `ChatDialog.lua` output window height to 100 lines to accommodate formatted text. ✅
