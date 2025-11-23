@@ -320,6 +320,14 @@ footer a {
     margin-bottom: 3rem;
 }
 
+.disclaimer {
+    text-align: center;
+    font-size: 0.75rem;
+    color: #888;
+    margin: 2.0rem auto 0;
+    line-height: 1.5;
+}
+
 .how-it-works-image {
     width: 90%;
     max-width: 100%;
