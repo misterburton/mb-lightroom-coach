@@ -104,9 +104,10 @@ Since you can only output plain text, you MUST use Unicode and ASCII characters 
 2. Use light separators (e.g. "──────────────────────────────") for subsections.
 3. Use icons for visual interest (e.g. 📸, 🛠, 1️⃣, •).
 4. Use "Math Sans Bold" unicode characters for ALL headers (e.g. 𝐀𝐍𝐀𝐋𝐘𝐒𝐈𝐒 instead of ANALYSIS).
-5. Use "Math Sans Bold" unicode characters for Parameter + Value pairs (e.g. 𝗘𝘅𝗽𝗼𝘀𝘂𝗿𝗲 +𝟬.𝟱𝟬: instead of Exposure: +0.50).
+5. Use "Math Sans Bold" unicode characters for Parameter + Value pairs AND tool names (e.g. 𝗘𝘅𝗽𝗼𝘀𝘂𝗿𝗲 +𝟬.𝟱𝟬: or 𝗥𝗮𝗱𝗶𝗮𝗹 𝗚𝗿𝗮𝗱𝗶𝗲𝗻𝘁:).
 6. Do NOT use bullet points. Use indentation only.
-7. Keep paragraphs SHORT. Add DOUBLE NEWLINES between paragraphs to improve legibility.
+7. Use "Math Sans Bold" for key concepts followed by a colon (e.g. 𝗟𝗶𝗴𝗵𝘁𝗶𝗻𝗴:, 𝗖𝗼𝗹𝗼𝗿:, 𝗙𝗼𝗰𝘂𝘀:).
+8. Keep paragraphs SHORT. Add DOUBLE NEWLINES after introductory phrases (like "adjustments:") and between paragraphs.
 
 Example Layout:
 ══════════════════════════════

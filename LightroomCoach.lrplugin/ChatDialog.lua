@@ -74,6 +74,11 @@ function ChatDialog.present()
       -- Unescape quotes: \" -> "
       t = t:gsub('\\"', '"')
       
+      -- Specific Fix for "Refining Editing Parameters" to Bold Unicode
+      if t:find("Refining Editing Parameters") then
+         t = t:gsub("Refining Editing Parameters", "𝗥𝗲𝗳𝗶𝗻𝗶𝗻𝗴 𝗘𝗱𝗶𝘁𝗶𝗻𝗴 𝗣𝗮𝗿𝗮𝗺𝗲𝘁𝗲𝗿𝘀")
+      end
+      
       return t
     end
 
@@ -228,7 +233,7 @@ function ChatDialog.present()
         f:edit_field {
           value = LrView.bind("transcript"),
           width = 450, -- Prevent horizontal scroll
-          height_in_lines = 200, -- Adjusted to ensure full text visibility without excessive scrolling
+          height_in_lines = 125, -- Reduced to prevent excessive empty scrolling space
           enabled = false, 
           wraps = true
         }
