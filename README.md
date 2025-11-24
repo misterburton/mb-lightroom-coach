@@ -1,4 +1,4 @@
-# Lightroom Classic Coach
+# Lightroom Coach
 
 An AI-powered teaching assistant that lives inside Adobe Lightroom Classic, providing real-time guidance, photo analysis, and transparent editing powered by Google's Gemini 3 AI models.
 
@@ -14,7 +14,7 @@ An AI-powered teaching assistant that lives inside Adobe Lightroom Classic, prov
 ## Installation
 
 1. **Download the plug-in**:
-   - Visit [GitHub Releases](https://github.com/misterburton/mb-lightroom-classic-coach/releases/latest)
+   - Visit [GitHub Releases](https://github.com/misterburton/mb-lightroom-coach/releases/latest)
    - Download `LightroomCoach.lrplugin.zip`
    - Unzip the file
 
