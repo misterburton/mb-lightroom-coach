@@ -342,6 +342,9 @@ footer a {
     height: auto;
     display: block;
     margin: 2rem auto;
+    user-select: none;
+    -webkit-user-drag: none;
+    pointer-events: none;
 }
 
 .transparent-learning-image {
@@ -350,6 +353,9 @@ footer a {
     height: auto;
     display: block;
     margin: 2rem auto;
+    user-select: none;
+    -webkit-user-drag: none;
+    pointer-events: none;
 }
 
 .install-image {
@@ -358,6 +364,9 @@ footer a {
     height: auto;
     display: block;
     margin: 2rem auto;
+    user-select: none;
+    -webkit-user-drag: none;
+    pointer-events: none;
 }
 
 code {
