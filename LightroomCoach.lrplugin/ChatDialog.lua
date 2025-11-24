@@ -237,7 +237,7 @@ function ChatDialog.present()
       
       -- Transcript area
       -- FIX: Reverting to edit_field with MODERATE height.
-      -- height_in_lines = 60 forces vertical scrolling (~1000px height)
+      -- height_in_lines forces vertical scrolling (~1000px height)
       -- This is large enough to overflow the 400px view, but small enough
       -- to minimize the massive empty white space issue.
       f:scrolled_view {
@@ -250,7 +250,7 @@ function ChatDialog.present()
         f:edit_field {
           value = LrView.bind("transcript"),
           width = 450, -- Prevent horizontal scroll
-          height_in_lines = 125, -- Reduced to prevent excessive empty scrolling space
+          height_in_lines = 175, -- Reduced to prevent excessive empty scrolling space
           enabled = false, 
           wraps = true
         }
