@@ -75,6 +75,10 @@ body {
 
 
 @media (max-width: 768px) {
+    .logo-header {
+        margin: 0.5rem 0 0;
+    }
+    
     .logo-icon {
         width: 1.25rem;
         height: 1.25rem;
