@@ -32,6 +32,7 @@ function ChatDialog.present()
     
     -- Initialize properties
     props.userInput = ""
+    props.canSend = true -- Controls button enabled state during API calls
     
     -- Zero-State Welcome Message (Onboarding)
     props.transcript = [[👋 𝗜'𝗺 𝘆𝗼𝘂𝗿 𝗔𝗜 𝗘𝗱𝗶𝘁𝗶𝗻𝗴 𝗖𝗼𝗮𝗰𝗵.
@@ -51,6 +52,48 @@ function ChatDialog.present()
     
     -- Initialize chat history (not bound to UI, just internal state)
     local chatHistory = {}
+
+    -- Spinner animation state
+    local spinnerFrames = { "⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏" }
+    local isLoading = false
+    local transcriptBeforeLoading = ""
+
+    -- Start spinner animation
+    local function startSpinner(loadingMessage)
+      isLoading = true
+      props.canSend = false -- Disable buttons during loading
+      transcriptBeforeLoading = props.transcript
+      
+      -- Add initial loading line
+      if transcriptBeforeLoading ~= "" then
+        props.transcript = transcriptBeforeLoading .. "\n\n" .. spinnerFrames[1] .. " " .. loadingMessage
+      else
+        props.transcript = spinnerFrames[1] .. " " .. loadingMessage
+      end
+      
+      -- Start animation loop in separate async task
+      LrTasks.startAsyncTask(function()
+        local frameIndex = 1
+        while isLoading do
+          LrTasks.sleep(0.1) -- 100ms per frame for smooth animation
+          if not isLoading then break end -- Check again after sleep
+          
+          frameIndex = frameIndex % #spinnerFrames + 1
+          if transcriptBeforeLoading ~= "" then
+            props.transcript = transcriptBeforeLoading .. "\n\n" .. spinnerFrames[frameIndex] .. " " .. loadingMessage
+          else
+            props.transcript = spinnerFrames[frameIndex] .. " " .. loadingMessage
+          end
+        end
+      end)
+    end
+
+    -- Stop spinner and restore transcript to pre-loading state
+    local function stopSpinner()
+      isLoading = false
+      props.canSend = true -- Re-enable buttons
+      props.transcript = transcriptBeforeLoading
+    end
 
     -- Helper to clean markdown syntax for plain text display
     local function cleanMarkdown(text)
@@ -172,6 +215,9 @@ function ChatDialog.present()
       addToTranscript("user", message)
       props.userInput = ""
 
+      -- Start spinner animation
+      startSpinner("Thinking...")
+
       LrTasks.startAsyncTask(function()
         -- Standard error handling via success checks in modules
         local contextData = Gemini.getContext()
@@ -179,6 +225,8 @@ function ChatDialog.present()
         -- Pass entire history to Gemini.ask
         local response = Gemini.ask(chatHistory, contextData)
         
+        -- Stop spinner before showing response
+        stopSpinner()
         processResponse(response)
       end)
     end
@@ -194,11 +242,15 @@ function ChatDialog.present()
       end
       
       props.showSuggestions = false
-      -- Use more accurate loading text as requested
-      addToTranscript("assistant", "Analyzing photo... (This may take up to 30 seconds)", true)
+      
+      -- Start spinner animation
+      startSpinner("Analyzing photo... (may take up to 30 seconds)")
       
       LrTasks.startAsyncTask(function()
          local response = Gemini.analyze(photo)
+         
+         -- Stop spinner before showing response
+         stopSpinner()
          processResponse(response)
       end)
     end
@@ -229,7 +281,8 @@ function ChatDialog.present()
         f:spacer { fill_horizontal = 1 },
         f:push_button {
             title = "📷 Analyze & Coach",
-            action = analyzePhoto
+            action = analyzePhoto,
+            enabled = LrView.bind("canSend")
         }
       },
       
@@ -241,7 +294,7 @@ function ChatDialog.present()
       -- This is large enough to overflow the 400px view, but small enough
       -- to minimize the massive empty white space issue.
       f:scrolled_view {
-        width = 480,
+        width = 515,
         height = 400,
         horizontal_scroller = false,
         vertical_scroller = true,
@@ -249,7 +302,7 @@ function ChatDialog.present()
         
         f:edit_field {
           value = LrView.bind("transcript"),
-          width = 450, -- Prevent horizontal scroll
+          width = 485, -- Prevent horizontal scroll
           height_in_lines = 175, -- Reduced to prevent excessive empty scrolling space
           enabled = false, 
           wraps = true
@@ -285,7 +338,8 @@ function ChatDialog.present()
           action = function() 
             local msg = props.userInput
             sendMessage(msg)
-          end
+          end,
+          enabled = LrView.bind("canSend")
         }
       }
     }
