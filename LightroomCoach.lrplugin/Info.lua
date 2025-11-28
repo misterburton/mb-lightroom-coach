@@ -14,5 +14,7 @@ return {
     },
   },
   
-  VERSION = { major = 1, minor = 0, revision = 0, build = 0 },
+  VERSION = { major = 2, minor = 1, revision = 0, build = 0 },
+  
+  -- NOTE: For update checking, also update CURRENT_VERSION in ChatDialog.lua
 }

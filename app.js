@@ -136,33 +136,53 @@ function cleanupLogoGlitch() {
 }
 
 // Download button click handler
-function initDownloadButton() {
-    const downloadBtn = document.querySelector('.download-btn');
-    if (downloadBtn) {
-        downloadBtn.addEventListener('click', () => {
-            const url = downloadBtn.getAttribute('data-href');
+function initDownloadButtons() {
+    const downloadBtns = document.querySelectorAll('.download-btn');
+    downloadBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+            const url = btn.getAttribute('data-href');
             if (url) {
                 window.location.href = url;
             }
         });
         
-        // Also support keyboard activation
-        downloadBtn.addEventListener('keydown', (e) => {
+        btn.addEventListener('keydown', (e) => {
             if (e.key === 'Enter' || e.key === ' ') {
                 e.preventDefault();
-                const url = downloadBtn.getAttribute('data-href');
+                const url = btn.getAttribute('data-href');
                 if (url) {
                     window.location.href = url;
                 }
             }
         });
+    });
+}
+
+// Fetch and display latest version from GitHub
+async function fetchLatestVersion() {
+    try {
+        const response = await fetch('https://api.github.com/repos/misterburton/mb-lightroom-coach/releases/latest');
+        if (!response.ok) return;
+        
+        const data = await response.json();
+        const version = data.tag_name || '';
+        
+        if (version) {
+            const cleanVersion = version.replace(/^v/, '');
+            document.querySelectorAll('.download-version').forEach(el => {
+                el.textContent = `(v${cleanVersion})`;
+            });
+        }
+    } catch (e) {
+        // Silently fail - version just won't show
     }
 }
 
 document.addEventListener('DOMContentLoaded', () => {
     setDynamicYear();
     initLogoGlitch();
-    initDownloadButton();
+    initDownloadButtons();
+    fetchLatestVersion();
 });
 
 // Cleanup on page unload
