@@ -238,14 +238,14 @@ footer a {
     overflow: hidden;
     transform: translateZ(0);
     display: block;
-    margin: 4rem auto 1.5rem;
+    margin: 4rem auto 1rem;
     text-align: center;
     color: #ffffff;
     width: fit-content;
 }
 
 .download-btn-top {
-    margin: 3rem auto 3rem;
+    margin-top: 3rem;
 }
 
 .download-btn span {
@@ -253,9 +253,10 @@ footer a {
 }
 
 .download-version {
-    font-size: 0.8rem;
-    color: #888;
-    margin-left: 0.35rem;
+    font-size: 0.7rem;
+    color: #666;
+    text-align: center;
+    margin: -0.6rem 0 2.5rem;
 }
 
 .download-btn::before {
