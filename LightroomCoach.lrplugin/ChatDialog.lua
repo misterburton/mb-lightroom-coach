@@ -22,7 +22,7 @@ local GITHUB_OWNER = "misterburton"
 local GITHUB_REPO = "mb-lightroom-coach"
 
 -- Current plugin version (update this alongside Info.lua when releasing)
-local CURRENT_VERSION = "2.1.0"
+local CURRENT_VERSION = "2.2.0"
 
 local ChatDialog = {}
 
@@ -362,6 +362,7 @@ function ChatDialog.present()
           width_in_chars = 40,
           fill_horizontal = 1,
           immediate = true,
+          allow_newlines = true,
           validate = function(view, value)
             if value:find("\n") or value:find("\r") then
               local cleanValue = value:gsub("\n", ""):gsub("\r", "")
