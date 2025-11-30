@@ -17,6 +17,10 @@
     font-display: swap;
 }
 
+html {
+    height: 100%;
+}
+
 body {
     background-color: #121212;
     color: #e0e0e0;
@@ -24,9 +28,8 @@ body {
     font-size: .9rem;
     display: flex;
     flex-direction: column;
-    justify-content: space-between;
     align-items: center;
-    min-height: 100dvh;
+    min-height: 100%;
     margin: 0;
 }
 
@@ -386,7 +389,7 @@ code {
 
 /* Footer Styles */
 footer {
-    padding: 1rem 0 calc(3rem + env(safe-area-inset-bottom, 0px)) 0;
+    padding: 1rem 0 3rem 0;
     text-align: center;
     flex-shrink: 0;
 }
